@@ -11,6 +11,9 @@ class Graph {
     private static TitleFont: string = "70px Arial";
     private static TextFont: string = "30px Arial";
     private static TitleColor: string = "white";
+    private static TierSpeedInc: number = 0; // Item speed increment between item tiers.
+    private static MarginTop: number = 20;
+    private static ItemSpace: number = 20;
 
     private Width: number = 0;
     private Height: number = 0;
@@ -46,26 +49,86 @@ class Graph {
             return;
         }
 
-        // Set graph dimensions
         this.Width = width;
         this.Height = height;
 
-        // Resize and re-locate graph items if needed.
+        let currentBottom = Graph.MarginTop;
         for (let i = 0; i < this.Items.length; i++) {
-            this.Items[i].SetSize(100, 50);
+            let tier1Item = this.Items[i];
+            // Resize item. todo: change to be based on text size
+            tier1Item.SetSize(100, 50);
+
+            // Re-position item
+            let x = Math.random() * this.Width;
+            let y = currentBottom + Graph.ItemSpace;
+            tier1Item.SetPosition(x, y);
+
+            this.PositionChildren(tier1Item, currentBottom);
+        }
+    }
+    
+    /**
+     * Positions the children of the given item around the item.
+     * @param item The item to position the children of.
+     */
+    private PositionChildren(item: GraphItem, currentButtom: number = 0): void {
+        for (let i = 0; i < item.Children.length; i++) {
+            let x = Math.random() * this.Width;
+            let minY = item.Y - (Graph.ItemSpace / 2);
+            let y = (Math.random() * ()) + minY;
+
+            // Check if it conflicts with any other items.
         }
     }
 
-    public AddItem(item: GraphItem): void {
-        this.Items.push(item);
+
+    // Position tier 1 item
+    // get bounding box for tier 2 items
+    // position tier 2 item.
+    // check if conflicts with other tier 2 items or tier 1 items.
+    // get bounding box for tier 3 items
+    // position tier 3 item. check if it conflicts with other tier 3, tier 2, or tier 1 items
+    
+    private UpdateChildLocations(item: GraphItem, tier: number = 0) {
+        for (let i = 0; i < item.Children.length; i++) {
+            
+        }
     }
 
-    public AddItems(items: GraphItem[]): void {
+    public AddItems(items: GraphItem[], tier: number = 0): void {
+        this.Items = this.Items.concat(items);
+        this.SetSpeeds(this.Items)
+    }
+
+    /**
+     * Sets the speed values of all items in the graph based on their tier/level in the graph.
+     */
+    private SetSpeeds(items: GraphItem[], tier: number = 0): void {
         for (let i = 0; i < items.length; i++) {
-            this.Items.push(items[i]);
+            let item = items[i];
+    
+            item.SpeedX = Math.random() * Graph.TierSpeedInc * tier;
+            item.SpeedY = Math.random() * Graph.TierSpeedInc * tier;
+            this.SetSpeeds(item.Children, tier + 1);
         }
     }
 
+    /**
+     * Moves all graph items their preset speed to animate the graph items.
+     * @remarks Should be called every tick for animation.
+     */
+    public MoveItems(items: GraphItem[] = this.Items) {
+        for (let i = 0; i < items.length; i++) {
+            let item = items[i];
+            item.Move();
+            this.MoveItems(item.Children);
+        }
+    }
+
+    /**
+     * Draws the graph on the given canvas.
+     * @param canvas The Canvas to draw the items of the graph on.
+     */
     public Draw(canvas: CanvasRenderingContext2D): void {
         canvas.clearRect(0, 0, this.Width, this.Height);
 
@@ -87,23 +150,29 @@ class Graph {
 
         // Draw the graph items
         for (let i = 0; i < this.Items.length; i++) {
-            let curr: GraphItem = this.Items[i];
-            
-            // Draw rectangle around Text.
-            canvas.beginPath();
-            canvas.fillStyle = "red";
-            canvas.fillRect(curr.X, curr.Y, curr.Width, curr.Height);
-            canvas.stroke();
+            this.DrawItem(this.Items[i], canvas);
+        }
+    }
+    
+    public DrawItem(item: GraphItem, canvas: CanvasRenderingContext2D) {
+        // Draw rectangle around Text.
+        canvas.beginPath();
+        canvas.fillStyle = "red";
+        canvas.fillRect(item.X, item.Y, item.Width, item.Height);
+        canvas.stroke();
 
-            // Draw Text
-            canvas.font = "30px Arial";
-            canvas.textAlign = "center";
-            canvas.fillStyle = "black";
-            canvas.fillText(
-                curr.Text,
-                curr.X + curr.Width / 2,
-                curr.Y + curr.Height * 0.8
-            );
+        // Draw Text
+        canvas.font = "30px Arial";
+        canvas.textAlign = "center";
+        canvas.fillStyle = "black";
+        canvas.fillText(
+            item.Text,
+            item.X + item.Width / 2,
+            item.Y + item.Height * 0.8
+        );
+
+        for (let i = 0; i < item.Children.length; i++) {
+            this.DrawItem(item.Children[i], canvas);
         }
     }
 }
@@ -117,11 +186,12 @@ class GraphItem {
     public Width: number = 0;
     public Height: number = 0;
     public Text: string;
-    public Tier: Tiers;
+    public SpeedX: number = 0;
+    public SpeedY: number = 0;
+    public Children: GraphItem[] = [];
 
-    constructor(text: string, tier: Tiers) {
+    constructor(text: string) {
         this.Text = text;
-        this.Tier = tier;
     }
 
     public SetPosition(x: number, y: number) {
@@ -133,6 +203,14 @@ class GraphItem {
         this.Width = width;
         this.Height = height;
     }
+
+    /**
+     * Moves the item's position one tick based on its speed
+     */
+    public Move() {
+        this.X += this.SpeedX;
+        this.Y += this.SpeedY;
+    }
 }
 
 enum Tiers {
@@ -141,19 +219,38 @@ enum Tiers {
     Tier3,
 }
 
+function CreateGraphItemTree(): GraphItem[] {
+    let newItemTree = [
+        new GraphItem("test1"),
+        new GraphItem("test2"),
+        new GraphItem("test3"),
+        new GraphItem("test3"),
+    ];
+
+    newItemTree[0].Children.push(new GraphItem("1.1"))
+    newItemTree[0].Children.push(new GraphItem("1.2"))
+    newItemTree[0].Children.push(new GraphItem("1.3"))
+    
+    newItemTree[1].Children.push(new GraphItem("2.1"))
+    newItemTree[1].Children.push(new GraphItem("2.2"))
+    
+    newItemTree[2].Children.push(new GraphItem("3.1"))
+
+    return newItemTree;
+}
+
 function MainPage() {
     const [graph, setGraph] = useState<Graph>(
         new Graph(0, 0, "", true)
     );
     const GraphContainer: React.RefObject<HTMLCanvasElement> =
         useRef<HTMLCanvasElement>(null);
-    const RefreshInterval = 1000 / 10;
+    const RefreshInterval = 1000 / 60;
     const [reRender, setReRender] = useState<boolean>(false);
 
     // Initialize the graph with my resume information.
     useEffect(() => {
-        let graphItems: GraphItem[] = [new GraphItem("test", Tiers.Tier1)];
-        graph.AddItems(graphItems);
+        graph.AddItems(CreateGraphItemTree());
     }, []);
 
     // Draw the Text Graph on each render.
@@ -164,6 +261,7 @@ function MainPage() {
         }
 
         graph.SetDimensions(window.innerWidth, window.innerHeight, canvas);
+        graph.MoveItems();
         graph.Draw(canvas);
     });
 
